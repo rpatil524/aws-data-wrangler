@@ -112,13 +112,40 @@ def test_athena_ctas(path, path2, path3, glue_table, glue_table2, glue_database,
         ctas_temp_table_name=glue_table2,
         s3_output=path3,
     )
-    assert wr.catalog.does_table_exist(database=glue_ctas_database, table=glue_table2) is True
+    assert wr.catalog.does_table_exist(database=glue_ctas_database, table=glue_table2) is False
     assert len(wr.s3.list_objects(path=path3)) > 2
     assert len(wr.s3.list_objects(path=final_destination)) > 0
     for df in dfs:
         ensure_data_types(df=df, has_list=True)
         ensure_athena_query_metadata(df=df, ctas_approach=True, encrypted=False)
     assert len(wr.s3.list_objects(path=path3)) == 0
+
+
+def test_athena_read_sql_ctas_bucketing(path, path2, glue_table, glue_table2, glue_database, glue_ctas_database):
+    df = pd.DataFrame({"c0": [0, 1], "c1": ["foo", "bar"]})
+    wr.s3.to_parquet(
+        df=df,
+        path=path,
+        dataset=True,
+        database=glue_database,
+        table=glue_table,
+    )
+    df_ctas = wr.athena.read_sql_query(
+        sql=f"SELECT * FROM {glue_table}",
+        ctas_approach=True,
+        database=glue_database,
+        ctas_database_name=glue_ctas_database,
+        ctas_temp_table_name=glue_table2,
+        ctas_bucketing_info=(["c0"], 1),
+        s3_output=path2,
+    )
+    df_no_ctas = wr.athena.read_sql_query(
+        sql=f"SELECT * FROM {glue_table}",
+        ctas_approach=False,
+        database=glue_database,
+        s3_output=path2,
+    )
+    assert df_ctas.equals(df_no_ctas)
 
 
 def test_athena(path, glue_database, glue_table, kms_key, workgroup0, workgroup1):

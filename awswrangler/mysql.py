@@ -37,7 +37,7 @@ def _drop_table(cursor: Cursor, schema: Optional[str], table: str) -> None:
 def _does_table_exist(cursor: Cursor, schema: Optional[str], table: str) -> bool:
     schema_str = f"TABLE_SCHEMA = '{schema}' AND" if schema else ""
     cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE " f"{schema_str} TABLE_NAME = '{table}'")
-    return len(cursor.fetchall()) > 0  # type: ignore
+    return len(cursor.fetchall()) > 0
 
 
 def _create_table(
@@ -141,7 +141,7 @@ def connect(
         password=attrs.password,
         port=attrs.port,
         host=attrs.host,
-        ssl=attrs.ssl_context,
+        ssl=attrs.ssl_context,  # type: ignore
         read_timeout=read_timeout,
         write_timeout=write_timeout,
         connect_timeout=connect_timeout,
@@ -292,8 +292,8 @@ def to_sql(
         Schema name
     mode : str
         Append, overwrite, upsert_duplicate_key, upsert_replace_into, upsert_distinct.
-            append: Inserts new records into table
-            overwrite: Drops table and recreates
+            append: Inserts new records into table.
+            overwrite: Drops table and recreates.
             upsert_duplicate_key: Performs an upsert using `ON DUPLICATE KEY` clause. Requires table schema to have
             defined keys, otherwise duplicate records will be inserted.
             upsert_replace_into: Performs upsert using `REPLACE INTO` clause. Less efficient and still requires the
@@ -340,17 +340,16 @@ def to_sql(
     """
     if df.empty is True:
         raise exceptions.EmptyDataFrame()
+
     mode = mode.strip().lower()
-    modes = [
+    allowed_modes = [
         "append",
         "overwrite",
         "upsert_replace_into",
         "upsert_duplicate_key",
         "upsert_distinct",
     ]
-    if mode not in modes:
-        raise exceptions.InvalidArgumentValue(f"mode must be one of {', '.join(modes)}")
-
+    _db_utils.validate_mode(mode=mode, allowed_modes=allowed_modes)
     _validate_connection(con=con)
     try:
         with con.cursor() as cursor:
